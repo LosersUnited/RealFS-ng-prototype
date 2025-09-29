@@ -117,9 +117,10 @@ export const response_spec = {
     read: {
         write(buf: SpecBuffer, data: Uint8Array) {
             buf.writeFromSpecType("uint32", data.byteLength);
-            for (let i = 0; i < data.byteLength; ++i) {
-                buf.writeFromSpecType("uint8", data[i]);
-            }
+            // for (let i = 0; i < data.byteLength; ++i) {
+            //     buf.writeFromSpecType("uint8", data[i]);
+            // }
+            buf.emplaceIntoBuffer(data);
         },
         read(buf: SpecBuffer) {
             const length = Number(buf.readFromSpecType("uint32"));
@@ -354,9 +355,10 @@ export const spec = {
         write(buf: SpecBuffer, path: string, data: Uint8Array, offset: number) {
             buf.writeFromSpecType("string", new TextEncoder().encode(path));
             buf.writeFromSpecType("uint32", data.byteLength);
-            for (let i = 0; i < data.byteLength; ++i) {
-                buf.writeFromSpecType("uint8", data[i]);
-            }
+            // for (let i = 0; i < data.byteLength; ++i) {
+            //     buf.writeFromSpecType("uint8", data[i]);
+            // }
+            buf.emplaceIntoBuffer(data);
             buf.writeFromSpecType("uint32", offset);
         },
     },

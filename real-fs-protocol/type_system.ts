@@ -217,6 +217,12 @@ export class SpecBuffer {
         }
         this.offset = offset;
     }
+
+    emplaceIntoBuffer(buffer: Uint8Array): void {
+        this.ensureCapacity(this.offset + buffer.byteLength);
+        this.buffer.set(buffer, this.offset);
+        this.offset += buffer.byteLength;
+    }
 }
 
 export function createConcatWholeOper(): (buf: SpecBuffer) => number[] {
