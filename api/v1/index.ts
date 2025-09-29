@@ -143,6 +143,7 @@ function handleWs(req: Request): Response {
                     const stat = options.stat;
                     // console.log(stat);
                     await fs.utimes(securePath, Number(stat.atime) / 1000, Number(stat.mtime) / 1000);
+                    await fs.truncate(securePath, stat.size);
                     response_spec[opCode].write(responseMessageBuf, true);
                     break;
                 }
