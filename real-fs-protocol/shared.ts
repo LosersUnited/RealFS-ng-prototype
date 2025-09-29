@@ -1,4 +1,4 @@
-import { SpecBuffer } from "../real-fs-protocol/type_system.ts";
+import { SpecBuffer } from "./type_system.ts";
 
 export const opcode_map = {
     "ls": 0x01,
