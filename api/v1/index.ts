@@ -124,7 +124,7 @@ function handleWs(req: Request): Response {
                     const filePath = options.path;
                     const securePath = MountPointManager.resolveSecurePath(currentMountPoint, filePath);
                     const length = options.end - options.start;
-                    console.log(options, length);
+                    // console.log(options, length);
                     const fileData = new Uint8Array(length);
                     // const fd = await fs_regular.promises.open(`${currentMountpoint}/${filePath}`, "r");
                     const fd = await fs.open(securePath, "r");
@@ -151,7 +151,7 @@ function handleWs(req: Request): Response {
                     const filePath = options.path;
                     const securePath = MountPointManager.resolveSecurePath(currentMountPoint, filePath);
                     const fd = await fs.open(securePath, "r+");
-                    console.log(options);
+                    // console.log(options);
                     // await fs_write(fd.fd, options.data, 0, options.data.byteLength, options.offset);
                     await fd.write(options.data, 0, options.data.byteLength, options.offset);
                     await fd.close();
