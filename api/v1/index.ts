@@ -3,8 +3,6 @@ import { spec, opcode_map, response_spec, control_message, StatOutput } from "..
 
 import path from "node:path";
 import fs from "node:fs/promises";
-import fs_regular from "node:fs";
-import { promisify } from "node:util";
 
 export const API_VERSION = "0.1";
 
