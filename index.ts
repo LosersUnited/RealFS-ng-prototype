@@ -1,6 +1,18 @@
 import * as api from "./api/index.ts";
 
 api.v1.MountPointManager.setMountPoint(Deno.env.get("REALFS_MOUNT_POINT") || "./mnt");
+try {
+    const exists = Deno.statSync(api.v1.MountPointManager.getMountPoint());
+    if (!exists.isDirectory) {
+        throw new Error(`Mount point is not a directory`);
+    }
+}
+catch (err) {
+    console.error(`Mount point does not exist or is inaccessible.`);
+    console.error("The error was:");
+    console.error(err);
+    Deno.exit(1);
+}
 
 const handler = ((req: Request) => {
     const url = new URL(req.url);
