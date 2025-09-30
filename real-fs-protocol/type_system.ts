@@ -223,6 +223,18 @@ export class SpecBuffer {
         this.buffer.set(buffer, this.offset);
         this.offset += buffer.byteLength;
     }
+
+    setExactSize(size: number) {
+        const newBuffer = new Uint8Array(size);
+        newBuffer.set(this.buffer, 0);
+        this.buffer = newBuffer;
+    }
+
+    appendToBuffer(buffer: Uint8Array): void {
+        const currentEnd = this.buffer.length;
+        this.setExactSize(currentEnd + buffer.byteLength);
+        this.buffer.set(buffer, currentEnd);
+    }
 }
 
 export function createConcatWholeOper(): (buf: SpecBuffer) => number[] {

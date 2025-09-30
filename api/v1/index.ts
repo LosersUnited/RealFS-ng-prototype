@@ -3,6 +3,7 @@ import { spec, opcode_map, response_spec, control_message, StatOutput } from "..
 
 import path from "node:path";
 import fs from "node:fs/promises";
+import { snapshotHandler } from "./snapshot.ts";
 
 export const API_VERSION = "0.1";
 
@@ -219,6 +220,9 @@ export function handler(req: Request, path: string) {
     console.log("API", req.method, path);
     if (path === "ws") {
         return handleWs(req);
+    }
+    else if (path === "snapshot") {
+        return snapshotHandler();
     }
     else {
         return new Response(`Not found`, { status: 404 });
