@@ -2,7 +2,7 @@ import * as api from "./api/index.ts";
 
 api.v1.MountPointManager.setMountPoint(Deno.env.get("REALFS_MOUNT_POINT") || "./mnt");
 
-Deno.serve((req) => {
+const handler = ((req: Request) => {
     const url = new URL(req.url);
     if (url.pathname === "/") {
         return new Response("RealFS next generation prototype");
@@ -27,3 +27,7 @@ Deno.serve((req) => {
         return new Response("404 Not Found", { status: 404 });
     }
 });
+
+Deno.serve({
+    port: parseInt(Deno.env.get("REALFS_PORT") ?? "8000")
+}, handler);
