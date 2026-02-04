@@ -55,6 +55,7 @@ export async function snapshotHandler() {
         totalBytes += 4 + versionBytes.length; // length of version bytes, version itself
         totalBytes += 4 + 8; // entries count, total bytes so far
         totalBytes += entries.length * (4 + 4 + 4 + 4 + 8 + 8 + 8);
+        totalBytes += 4; // path blob size
 
         const pathBlobOffset = totalBytes;
         // console.log(`Total Bytes: ${totalBytes}`);
@@ -96,6 +97,7 @@ export async function snapshotHandler() {
             storeUint64(spec, BigInt(entry.size));
             storeUint64(spec, BigInt(entry.dataOffset));
         }
+        spec.writeFromSpecType("uint32", pathBlobSize);
 
         const headerData = spec.getBuffer().slice(0, spec.getOffset());
         // console.log(headerData.byteLength);
