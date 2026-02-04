@@ -1,8 +1,9 @@
 import * as api from "./api/index.ts";
+import { MountPointManager } from "./api/mount.ts";
 
-api.v1.MountPointManager.setMountPoint(Deno.env.get("REALFS_MOUNT_POINT") || "./mnt");
+MountPointManager.setMountPoint(Deno.env.get("REALFS_MOUNT_POINT") || "./mnt");
 try {
-    const exists = Deno.statSync(api.v1.MountPointManager.getMountPoint());
+    const exists = Deno.statSync(MountPointManager.getMountPoint());
     if (!exists.isDirectory) {
         throw new Error(`Mount point is not a directory`);
     }

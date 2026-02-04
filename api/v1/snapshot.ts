@@ -1,5 +1,5 @@
 import { SpecBuffer } from "../../real-fs-protocol/type_system.ts";
-import { MountPointManager } from "./index.ts";
+import { MountPointManager } from "../mount.ts";
 import path from "node:path";
 import fs from "node:fs/promises";
 import { createReadStream, ReadStream } from "node:fs";
