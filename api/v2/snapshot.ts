@@ -54,7 +54,7 @@ export async function snapshotHandler() {
         const versionBytes = new TextEncoder().encode(VERSION);
         totalBytes += 4 + versionBytes.length; // length of version bytes, version itself
         totalBytes += 4 + 8; // entries count, total bytes so far
-        totalBytes += entries.length * (4 + 4 + 4 + 4 + 8 + 8 + 8);
+        totalBytes += entries.length * (4 + 4 + 4 + 8 + 8 + 8); // pathOffset(4) + type(4) + mode(4) + mtime(8) + size(8) + dataOffset(8)
         totalBytes += 4; // path blob size
 
         const pathBlobOffset = totalBytes;
