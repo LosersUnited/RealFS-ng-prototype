@@ -10,10 +10,19 @@ export const opcode_map = {
     "touch": 0x07,
     "rmdir": 0x08,
     "move": 0x09,
+    "stat64": 0xA2,
 }
 
 export type StatOutput = {
     size: number,
+    mode: number,
+    mtime: bigint,
+    ctime: bigint,
+    atime: bigint,
+};
+
+export type StatOutput64 = {
+    size: bigint,
     mode: number,
     mtime: bigint,
     ctime: bigint,
@@ -56,7 +65,11 @@ type HandlerResponseMap = {
     move: {
         read(buf: SpecBuffer): { success: boolean };
         write(buf: SpecBuffer, success: boolean): void;
-    }
+    },
+    stat64: {
+        read(buf: SpecBuffer): { stat: StatOutput64 };
+        write(buf: SpecBuffer, stat: StatOutput64): void;
+    };
 }
 
 function storeUint64(buf: SpecBuffer, value: bigint) {
@@ -198,7 +211,30 @@ export const response_spec = {
                 success: Boolean(buf.readFromSpecType("uint8")),
             };
         }
-    }
+    },
+    stat64: {
+        write(buf: SpecBuffer, stat: StatOutput64) {
+            storeUint64(buf, BigInt(stat.size));
+            buf.writeFromSpecType("uint32", stat.mode);
+            // buf.writeFromSpecType("uint32", stat.mtime);
+            // buf.writeFromSpecType("uint32", stat.ctime);
+            // buf.writeFromSpecType("uint32", stat.atime);
+            storeUint64(buf, BigInt(stat.mtime));
+            storeUint64(buf, BigInt(stat.ctime));
+            storeUint64(buf, BigInt(stat.atime));
+        },
+        read(buf: SpecBuffer) {
+            return {
+                stat: {
+                    size: readUint64(buf),
+                    mode: Number(buf.readFromSpecType("uint32")) >>> 0,
+                    mtime: readUint64(buf),
+                    ctime: readUint64(buf),
+                    atime: readUint64(buf)
+                }
+            };
+        }
+    },
 } as { [K in keyof typeof opcode_map]: HandlerResponseMap[K] };
 
 export const control_message = {
@@ -259,7 +295,8 @@ type HandlerMap = {
     move: {
         read(buf: SpecBuffer): { src_path: string, dst_path: string };
         write(buf: SpecBuffer, src_path: string, dst_path: string): void;
-    }
+    };
+    stat64: HandlerMap["stat"];
 };
 
 export const spec = {
@@ -383,5 +420,8 @@ export const spec = {
             buf.writeFromSpecType("string", new TextEncoder().encode(src_path));
             buf.writeFromSpecType("string", new TextEncoder().encode(dst_path));
         }
-    }
+    },
+    get stat64() {
+        return spec.stat;
+    },
 } as { [K in keyof typeof opcode_map]: HandlerMap[K] };

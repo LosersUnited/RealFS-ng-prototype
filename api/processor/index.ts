@@ -16,12 +16,30 @@ const S_IFMT = 0o170000;  // bitmask for the file type
 const S_IFDIR = 0o040000; // directory
 const S_IFREG = 0o100000; // regular file
 
-type TransitData = {
+export type WrappedHandler<T extends string | symbol = keyof typeof opcode_map> = {
+    [K in T]?: {
+        inheritedFrom: string | null; // inherited version. if inherited has stat64, but current doesn't define it's func as owned, the current carries over from `version` keyed by this.
+        dirtyFromInherit: boolean; // if inherited != null, and current functionality != inherited functionality, this should be true. mostly diagnostic.
+        func: ((me: K, ctx: { tr: TransitData, inBuf: SpecBuffer, outBuf: SpecBuffer }) => Promise<void>) | null; // null if not owned.
+    }
+}; // TODO: extend
+
+export type TransitData = {
     emulatedProtoVersion: string;
     buffer: Uint8Array;
     currentMountPoint: string;
     responseMessageBuf: SpecBuffer;
+    handlers: {
+        // thanks this pattern, the processor knows which version is at fault of declaring this handler.
+        [version: string]: WrappedHandler
+    };
 }
+// TransitData's handlers: keyed by version, the caller defines it's own handlers. for example, because processor shouldn't assume a version declares a handler from v0.2+, if one wants to add something like stat64, the split makes more sense. the context is passed as arguments, and the processor assumes the handler executes some kind of operation and then mutates its own context. I'd prefer no returning the value, as that would mean special handling according to a case.
+
+export type VersionIdentity = {
+    apiVersion: string;
+    handlers: TransitData["handlers"];
+};
 
 function serializeError(err: { [key: string]: any }) {
     if (!(err instanceof Error)) {
@@ -64,6 +82,27 @@ function sanitizeFsError(err: any, removePrefix: string) {
     }
 
     return clone;
+}
+
+type HandlerEntry<K extends keyof typeof opcode_map> = NonNullable<WrappedHandler[K]>;
+type HandlerFuncOrNull<K extends keyof typeof opcode_map = keyof typeof opcode_map> = HandlerEntry<K>["func"];
+
+function recurseFuncResolve<K extends keyof typeof opcode_map>(at: TransitData["handlers"], opCode: K, curVer: string): [HandlerFuncOrNull<K>, string[]] {
+    const versionStack = [curVer];
+    const handle = at[curVer]?.[opCode];
+    if (handle === undefined) {
+        throw new Error(`unsatisfied handler: version "${curVer}" declares no entry for ${opCode}`);
+    }
+    if (handle.func === null && handle.inheritedFrom === null) {
+        throw new Error(`unsatisfied handler, declared but not filled? (${curVer}/${opCode})`);
+    }
+    let assignedFunc = handle.func;
+    if (assignedFunc === null) {
+        const [oldFunc, newStack] = recurseFuncResolve(at, opCode, handle.inheritedFrom!);
+        versionStack.push(...newStack);
+        assignedFunc = oldFunc;
+    }
+    return [assignedFunc, versionStack];
 }
 
 export async function processRequest(req: TransitData) {
@@ -200,6 +239,30 @@ export async function processRequest(req: TransitData) {
                 await fs.rename(secureSrcPath, secureDstPath);
                 response_spec[opCode].write(responseMessageBuf, true);
                 break;
+            }
+            default: {
+                if (req.emulatedProtoVersion in req.handlers) {
+                    const handlersForMe = req.handlers[req.emulatedProtoVersion];
+                    const handle = handlersForMe[opCode];
+                    if (handle) {
+                        const state = {
+                            assignedFunc: handle.func,
+                            versionStack: [req.emulatedProtoVersion]
+                        };
+                        if (state.assignedFunc === null) {
+                            const [fn, vs] = recurseFuncResolve(req.handlers, opCode, req.emulatedProtoVersion);
+                            state.assignedFunc = fn;
+                            state.versionStack.push(...vs);
+                        }
+                        if (!state.assignedFunc) {
+                            throw new Error(`there's nothing we can do. func for ${opCode} is gone (visited ${state.versionStack.join(",")})`);
+                        }
+                        await state.assignedFunc(opCode, { tr: req, inBuf: specBuf, outBuf: responseMessageBuf });
+                        break;
+                    }
+                }
+                // break;
+                throw new Error("no such opcode " + opCode);
             }
         }
     }

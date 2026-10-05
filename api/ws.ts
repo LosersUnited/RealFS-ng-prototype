@@ -1,9 +1,13 @@
 import { SpecBuffer } from "../real-fs-protocol/type_system.ts";
 import { MountPointManager } from "./mount.ts";
 
-import { processRequest } from "./processor/index.ts";
+import { processRequest, VersionIdentity } from "./processor/index.ts";
 
 function handleWs(req: Request, apiVersion: string): Response {
+    return handleWs2(req, { apiVersion, handlers: {} });
+}
+
+function handleWs2(req: Request, apiIdentity: VersionIdentity): Response {
     const { socket, response } = Deno.upgradeWebSocket(req);
     const currentMountPoint = MountPointManager.getMountPoint();
     socket.addEventListener("message", async (ev) => {
@@ -11,8 +15,9 @@ function handleWs(req: Request, apiVersion: string): Response {
         await processRequest({
             buffer: new Uint8Array(ev.data),
             currentMountPoint,
-            emulatedProtoVersion: apiVersion,
+            emulatedProtoVersion: apiIdentity.apiVersion,
             responseMessageBuf,
+            handlers: apiIdentity.handlers,
         });
         socket.send(responseMessageBuf.getBuffer());
     });
@@ -21,4 +26,5 @@ function handleWs(req: Request, apiVersion: string): Response {
 
 export {
     handleWs,
+    handleWs2,
 }
