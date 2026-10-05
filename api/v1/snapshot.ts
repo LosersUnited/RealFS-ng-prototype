@@ -36,6 +36,11 @@ type SnapshotResponseController = {
     activeStreams: Set<ReadStream>;
 };
 
+// backported from v2
+function queueHasRoom(controller: ReadableStreamDefaultController<Uint8Array>): boolean {
+    return (controller.desiredSize ?? 0) > 0;
+}
+
 export async function snapshotHandler() {
     const activeStreams: Set<ReadStream> = new Set();
     try {
@@ -125,19 +130,19 @@ export async function snapshotHandler() {
                     }
 
                     if (ctrl.pathBytesArray) {
-                        if (ctrl.pathBytesArray.length > 0) {
-                            const pathBlob = Buffer.concat(ctrl.pathBytesArray);
-                            controller.enqueue(pathBlob);
-                        }
+                        const paths = ctrl.pathBytesArray;
                         delete ctrl.pathBytesArray;
-                        return;
+                        if (paths.length > 0) {
+                            controller.enqueue(Buffer.concat(paths));
+                            return;
+                        }
                     }
 
                     while (ctrl.dataEntryIndex < ctrl.entries.length) {
                         const entry = ctrl.entries[ctrl.dataEntryIndex];
                         ctrl.dataEntryIndex++;
 
-                        if (entry.type === 1) {
+                        if (entry.type === 1 || entry.size === 0) {
                             continue;
                         }
 
@@ -145,11 +150,19 @@ export async function snapshotHandler() {
                         const nodeStream = createReadStream(securePath);
                         ctrl.activeStreams.add(nodeStream);
 
+                        let streamed = 0;
                         for await (const chunk of nodeStream) {
+                            while (!queueHasRoom(controller)) {
+                                await new Promise(resolve => setTimeout(resolve, 1));
+                            }
                             controller.enqueue(new Uint8Array(chunk));
+                            streamed += chunk.length;
                         }
 
                         ctrl.activeStreams.delete(nodeStream);
+                        if (streamed === 0) {
+                            continue;
+                        }
                         return;
                     }
 
