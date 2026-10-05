@@ -3,8 +3,11 @@ import { spec, opcode_map, response_spec, control_message, StatOutput } from "..
 import { MountPointManager } from "../mount.ts";
 
 import fs from "node:fs/promises";
+import process from "node:process";
 
-const LOG_LEVEL = parseInt(Deno.env.get("REALFS_LOG_LEVEL") || "0");
+import { call, RUNTIME_NOISE_KEYS } from "../errors.ts";
+
+const LOG_LEVEL = parseInt(process.env.REALFS_LOG_LEVEL || "0");
 
 function log(level: number, msg: string, ...args: any[]) {
     if (level <= LOG_LEVEL) {
@@ -57,6 +60,9 @@ function serializeError(err: { [key: string]: any }) {
         if (!(key in serialized)) {
             serialized[key] = (err as any)[key];
         }
+    }
+    for (const key of RUNTIME_NOISE_KEYS) {
+        delete serialized[key];
     }
     return serialized;
 }
@@ -129,7 +135,7 @@ export async function processRequest(req: TransitData) {
                 const securePath = MountPointManager.resolveSecurePath(currentMountPoint, dirPath);
                 log(2, `path: ${securePath}`);
                 log(3, `ls: ${dirPath}`);
-                response_spec[opCode].write(responseMessageBuf, await fs.readdir(securePath));
+                response_spec[opCode].write(responseMessageBuf, await call("readdir", () => fs.readdir(securePath)));
                 break;
             }
             case "stat": {
@@ -137,7 +143,7 @@ export async function processRequest(req: TransitData) {
                 const securePath = MountPointManager.resolveSecurePath(currentMountPoint, filePath);
                 log(2, `path: ${securePath}`);
                 log(3, `stat: ${filePath}`);
-                const rawStat = await fs.stat(securePath);
+                const rawStat = await call("stat", () => fs.stat(securePath));
                 const stat: StatOutput = {
                     size: rawStat.size,
                     mode: rawStat.mode,
@@ -156,8 +162,8 @@ export async function processRequest(req: TransitData) {
                 log(2, `path: ${securePath}`);
                 log(3, `read: ${filePath} ${length}b @${options.start}`);
                 const fileData = new Uint8Array(length);
-                const fd = await fs.open(securePath, "r");
-                await fd.read(fileData, 0, length, options.start);
+                const fd = await call("open", () => fs.open(securePath, "r"));
+                await call("read", () => fd.read(fileData, 0, length, options.start));
                 await fd.close();
                 response_spec[opCode].write(responseMessageBuf, fileData);
                 break;
@@ -169,8 +175,8 @@ export async function processRequest(req: TransitData) {
                 const stat = options.stat;
                 log(2, `path: ${securePath}`);
                 log(3, `touch: ${filePath} sz:${stat.size}`);
-                await fs.truncate(securePath, stat.size);
-                await fs.utimes(securePath, Number(stat.atime) / 1000, Number(stat.mtime) / 1000);
+                await call("truncate", () => fs.truncate(securePath, stat.size));
+                await call("utime", () => fs.utimes(securePath, Number(stat.atime) / 1000, Number(stat.mtime) / 1000));
                 response_spec[opCode].write(responseMessageBuf, true);
                 break;
             }
@@ -178,10 +184,10 @@ export async function processRequest(req: TransitData) {
                 const options = spec[opCode].read(specBuf);
                 const filePath = options.path;
                 const securePath = MountPointManager.resolveSecurePath(currentMountPoint, filePath);
-                const fd = await fs.open(securePath, "r+");
+                const fd = await call("open", () => fs.open(securePath, "r+"));
                 log(2, `path: ${securePath}`);
                 log(3, `write: ${filePath} ${options.data.byteLength}b @${options.offset}`);
-                await fd.write(options.data, 0, options.data.byteLength, options.offset);
+                await call("write", () => fd.write(options.data, 0, options.data.byteLength, options.offset));
                 await fd.close();
                 response_spec[opCode].write(responseMessageBuf, true);
                 break;
@@ -191,7 +197,7 @@ export async function processRequest(req: TransitData) {
                 const securePath = MountPointManager.resolveSecurePath(currentMountPoint, filePath);
                 log(2, `path: ${securePath}`);
                 log(3, `unlink: ${filePath}`);
-                await fs.unlink(securePath);
+                await call("unlink", () => fs.unlink(securePath));
                 response_spec[opCode].write(responseMessageBuf, true);
                 break;
             }
@@ -203,12 +209,12 @@ export async function processRequest(req: TransitData) {
                 switch (options.opt.mode & S_IFMT) {
                     case S_IFDIR:
                         log(3, `mkdir: ${options.path}`);
-                        await fs.mkdir(securePath);
+                        await call("mkdir", () => fs.mkdir(securePath));
                         madeDir = true;
                         break;
                     case S_IFREG:
                         log(3, `create: ${options.path}`);
-                        await fs.writeFile(securePath, "");
+                        await call("open", () => fs.writeFile(securePath, ""));
                         break;
                 }
                 response_spec[opCode].write(responseMessageBuf, {
@@ -225,7 +231,7 @@ export async function processRequest(req: TransitData) {
                 const securePath = MountPointManager.resolveSecurePath(currentMountPoint, filePath);
                 log(2, `path: ${securePath}`);
                 log(3, `rmdir: ${filePath}`);
-                await fs.rmdir(securePath);
+                await call("rmdir", () => fs.rmdir(securePath));
                 response_spec[opCode].write(responseMessageBuf, true);
                 break;
             }
@@ -236,7 +242,7 @@ export async function processRequest(req: TransitData) {
                 log(2, `src: ${secureSrcPath}`);
                 log(2, `dst: ${secureDstPath}`);
                 log(3, `move: ${options.src_path} -> ${options.dst_path}`);
-                await fs.rename(secureSrcPath, secureDstPath);
+                await call("rename", () => fs.rename(secureSrcPath, secureDstPath));
                 response_spec[opCode].write(responseMessageBuf, true);
                 break;
             }

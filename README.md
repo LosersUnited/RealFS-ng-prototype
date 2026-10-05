@@ -24,8 +24,14 @@ You should not expose this server publicly. Never.
 
 ## How?
 
-To run it, you need Deno installed. You can download it from https://deno.land/.
-Then just run `deno run --allow-env --allow-read --allow-write --allow-net index.ts`.
+To run it, you need either Deno (https://deno.land/) or Bun (https://bun.sh).
+Then:
+
+    bun run index.ts
+
+or
+
+    deno run --allow-env --allow-read --allow-write --allow-net index.ts
 
 The architecture doesn't require any external dependencies.
 

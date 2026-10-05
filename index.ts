@@ -1,9 +1,13 @@
+import { statSync } from "node:fs";
+import process from "node:process";
+
 import * as api from "./api/index.ts";
 import { MountPointManager } from "./api/mount.ts";
+import { serve, runtimeName, type Upgrade } from "./runtime.ts";
 
-MountPointManager.setMountPoint(Deno.env.get("REALFS_MOUNT_POINT") || "./mnt");
+MountPointManager.setMountPoint(process.env.REALFS_MOUNT_POINT || "./mnt");
 try {
-    const exists = Deno.statSync(MountPointManager.getMountPoint());
+    const exists = statSync(MountPointManager.getMountPoint());
     if (!exists.isDirectory) {
         throw new Error(`Mount point is not a directory`);
     }
@@ -12,10 +16,10 @@ catch (err) {
     console.error(`Mount point does not exist or is inaccessible.`);
     console.error("The error was:");
     console.error(err);
-    Deno.exit(1);
+    process.exit(1);
 }
 
-const handler = ((req: Request) => {
+const handler = ((req: Request, upgrade: Upgrade) => {
     const url = new URL(req.url);
     if (url.pathname === "/") {
         return new Response("RealFS next generation prototype");
@@ -34,13 +38,14 @@ const handler = ((req: Request) => {
             return new Response(api_obj.API_VERSION, { headers: { "Content-Type": "application/json" } });
         }
 
-        return api_obj.handler(req, url.pathname.split(`/api/${version}/`)[1]);
+        return api_obj.handler(req, upgrade, url.pathname.split(`/api/${version}/`)[1]);
     }
     else {
         return new Response("404 Not Found", { status: 404 });
     }
 });
 
-Deno.serve({
-    port: parseInt(Deno.env.get("REALFS_PORT") ?? "8000")
-}, handler);
+const port = parseInt(process.env.REALFS_PORT ?? "8000");
+serve(handler, { port });
+
+console.log(`RealFS server (${runtimeName}) listening on port ${port}`);
