@@ -169,8 +169,8 @@ export async function processRequest(req: TransitData) {
                 const stat = options.stat;
                 log(2, `path: ${securePath}`);
                 log(3, `touch: ${filePath} sz:${stat.size}`);
-                await fs.utimes(securePath, Number(stat.atime) / 1000, Number(stat.mtime) / 1000);
                 await fs.truncate(securePath, stat.size);
+                await fs.utimes(securePath, Number(stat.atime) / 1000, Number(stat.mtime) / 1000);
                 response_spec[opCode].write(responseMessageBuf, true);
                 break;
             }
